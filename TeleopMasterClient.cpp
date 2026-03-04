@@ -8,7 +8,7 @@
 using ManusSDK::ClientLog;
 TeleopMasterClient* TeleopMasterClient::s_Instance = nullptr;
 
-// Euler 각도 변???�퍼
+// Euler 각도 변???�퍼
 struct EulerAngles { float roll, pitch, yaw; };
 EulerAngles ToEulerAngles(ManusQuaternion q) {
     EulerAngles angles;
@@ -56,7 +56,7 @@ bool TeleopMasterClient::InitializeUDP(const char* ip, int port) {
     return true;
 }
 
-// UDP ?�이???�송
+// UDP ?�이???�송
 void TeleopMasterClient::SendUDPData() {
     if (!m_UdpInitialized) return;
     HandDataPacket packet;
@@ -71,7 +71,7 @@ void TeleopMasterClient::SendUDPData() {
     packet.wristEuler[1] = e.pitch;
     packet.wristEuler[2] = e.yaw;
 
-    int offset = 20; // ?�른???�이???�프??
+    int offset = 20; // ?�른???�이???�프??
     for (int i = 0; i < 5; i++) {
         packet.fingerFlexion[i * 4 + 0] = m_RightGloveData.data[offset + (i * 4) + 0]; // MCP Spread
         packet.fingerFlexion[i * 4 + 1] = m_RightGloveData.data[offset + (i * 4) + 1]; // MCP Stretch
@@ -141,8 +141,8 @@ void TeleopMasterClient::OnTrackerStreamCallback(const TrackerStreamInfo* const 
 }
 
 void TeleopMasterClient::Run() {
-    // [중요] Ubuntu PC???�제 IP�??�정?�세??
-    if (!InitializeUDP("127.0.0.1", 12345)) {
+    // [중요] Ubuntu PC???�제 IP�??�정?�세??
+    if (!InitializeUDP("192.168.0.112", 12345)) {
         ClientLog::error("Failed to initialize UDP.");
         return;
     }
@@ -152,7 +152,7 @@ void TeleopMasterClient::Run() {
     while (m_Running) {
         {
             std::lock_guard<std::mutex> lock(m_DataMutex);
-            SendUDPData(); // ?�시�??�킷 ?�송
+            SendUDPData(); // ?�시�??�킷 ?�송
 
             system("cls");
             printf("=== [KAIST NREL] MANUS -> ROS2 Humble (UDP 50Hz) ===\n");
