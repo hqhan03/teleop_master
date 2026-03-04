@@ -73,9 +73,10 @@ void TeleopMasterClient::SendUDPData() {
 
     int offset = 20; // ?¤ë¥¸???°ì´???¤í”„??
     for (int i = 0; i < 5; i++) {
-        packet.fingerFlexion[i * 3 + 0] = m_RightGloveData.data[offset + (i * 4) + 1]; // MCP
-        packet.fingerFlexion[i * 3 + 1] = m_RightGloveData.data[offset + (i * 4) + 2]; // PIP
-        packet.fingerFlexion[i * 3 + 2] = m_RightGloveData.data[offset + (i * 4) + 3]; // DIP
+        packet.fingerFlexion[i * 4 + 0] = m_RightGloveData.data[offset + (i * 4) + 0]; // MCP Spread
+        packet.fingerFlexion[i * 4 + 1] = m_RightGloveData.data[offset + (i * 4) + 1]; // MCP Stretch
+        packet.fingerFlexion[i * 4 + 2] = m_RightGloveData.data[offset + (i * 4) + 2]; // PIP
+        packet.fingerFlexion[i * 4 + 3] = m_RightGloveData.data[offset + (i * 4) + 3]; // DIP
     }
 
     sendto(m_Socket, (char*)&packet, sizeof(packet), 0, (sockaddr*)&m_DestAddr, sizeof(m_DestAddr));
@@ -195,3 +196,4 @@ ClientReturnCode TeleopMasterClient::ShutDown() {
     PlatformSpecificShutdown();
     return ClientReturnCode::ClientReturnCode_Success;
 }
+

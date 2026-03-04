@@ -17,7 +17,7 @@ struct HandDataPacket {
     uint32_t frame;
     float wristPos[3];   // X, Y, Z (meters)
     float wristEuler[3]; // Roll, Pitch, Yaw (degrees)
-    float fingerFlexion[15]; // Thumb(MCP,PIP,DIP), Index(MCP,PIP,DIP)... ¼ø¼­
+    float fingerFlexion[20]; // Thumb, Index, Middle, Ring, Pinky (MCP_Sp, MCP_St, PIP, DIP)
 };
 #pragma pack(pop)
 
