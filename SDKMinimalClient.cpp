@@ -1,0 +1,197 @@
+#include "SDKMinimalClient.hpp"
+#include "ManusSDKTypes.h"
+#include <iostream>
+#include <thread>
+#include <cmath>
+#include "ClientLogging.hpp"
+
+using ManusSDK::ClientLog;
+SDKMinimalClient* SDKMinimalClient::s_Instance = nullptr;
+
+// Euler 각도 변환 헬퍼
+struct EulerAngles { float roll, pitch, yaw; };
+EulerAngles ToEulerAngles(ManusQuaternion q) {
+    EulerAngles angles;
+    float sinr_cosp = 2 * (q.w * q.x + q.y * q.z);
+    float cosr_cosp = 1 - 2 * (q.x * q.x + q.y * q.y);
+    angles.roll = std::atan2(sinr_cosp, cosr_cosp) * (180.0f / 3.141592f);
+
+    float sinp = 2 * (q.w * q.y - q.z * q.x);
+    if (std::abs(sinp) >= 1) angles.pitch = std::copysign(90.0f, sinp);
+    else angles.pitch = std::asin(sinp) * (180.0f / 3.141592f);
+
+    float siny_cosp = 2 * (q.w * q.z + q.x * q.y);
+    float cosy_cosp = 1 - 2 * (q.y * q.y + q.z * q.z);
+    angles.yaw = std::atan2(siny_cosp, cosy_cosp) * (180.0f / 3.141592f);
+    return angles;
+}
+
+int main(int argc, char* argv[]) {
+    SDKMinimalClient t_Client;
+    if (t_Client.Initialize() != ClientReturnCode::ClientReturnCode_Success) return -1;
+    t_Client.Run();
+    t_Client.ShutDown();
+    return 0;
+}
+
+SDKMinimalClient::SDKMinimalClient() : m_Running(true), m_ConnectionType(ConnectionType::ConnectionType_Local) {
+    s_Instance = this;
+    TrackerData_Init(&m_WristTracker);
+    ErgonomicsData_Init(&m_RightGloveData);
+}
+
+SDKMinimalClient::~SDKMinimalClient() { s_Instance = nullptr; }
+
+// UDP 초기화
+bool SDKMinimalClient::InitializeUDP(const char* ip, int port) {
+    WSADATA wsaData;
+    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) return false;
+    m_Socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (m_Socket == INVALID_SOCKET) return false;
+
+    m_DestAddr.sin_family = AF_INET;
+    m_DestAddr.sin_port = htons(port);
+    inet_pton(AF_INET, ip, &m_DestAddr.sin_addr);
+    m_UdpInitialized = true;
+    return true;
+}
+
+// UDP 데이터 전송
+void SDKMinimalClient::SendUDPData() {
+    if (!m_UdpInitialized) return;
+    HandDataPacket packet;
+    packet.frame = m_FrameCounter;
+
+    packet.wristPos[0] = m_WristTracker.position.x;
+    packet.wristPos[1] = m_WristTracker.position.y;
+    packet.wristPos[2] = m_WristTracker.position.z;
+
+    EulerAngles e = ToEulerAngles(m_WristTracker.rotation);
+    packet.wristEuler[0] = e.roll;
+    packet.wristEuler[1] = e.pitch;
+    packet.wristEuler[2] = e.yaw;
+
+    int offset = 20; // 오른손 데이터 오프셋
+    for (int i = 0; i < 5; i++) {
+        packet.fingerFlexion[i * 3 + 0] = m_RightGloveData.data[offset + (i * 4) + 1]; // MCP
+        packet.fingerFlexion[i * 3 + 1] = m_RightGloveData.data[offset + (i * 4) + 2]; // PIP
+        packet.fingerFlexion[i * 3 + 2] = m_RightGloveData.data[offset + (i * 4) + 3]; // DIP
+    }
+
+    sendto(m_Socket, (char*)&packet, sizeof(packet), 0, (sockaddr*)&m_DestAddr, sizeof(m_DestAddr));
+}
+
+ClientReturnCode SDKMinimalClient::Initialize() {
+    if (!PlatformSpecificInitialization()) return ClientReturnCode::ClientReturnCode_FailedToInitialize;
+    return InitializeSDK();
+}
+
+ClientReturnCode SDKMinimalClient::InitializeSDK() {
+    if (CoreSdk_InitializeCore() != SDKReturnCode::SDKReturnCode_Success) return ClientReturnCode::ClientReturnCode_FailedToInitialize;
+    RegisterAllCallbacks();
+    CoordinateSystemVUH t_VUH = { AxisView::AxisView_XFromViewer, AxisPolarity::AxisPolarity_PositiveZ, Side::Side_Right, 1.0f };
+    CoreSdk_InitializeCoordinateSystemWithVUH(t_VUH, true);
+    return ClientReturnCode::ClientReturnCode_Success;
+}
+
+ClientReturnCode SDKMinimalClient::RegisterAllCallbacks() {
+    CoreSdk_RegisterCallbackForTrackerStream(*OnTrackerStreamCallback);
+    CoreSdk_RegisterCallbackForErgonomicsStream(*OnErgonomicsCallback);
+    CoreSdk_RegisterCallbackForLandscapeStream(*OnLandscapeCallback);
+    return ClientReturnCode::ClientReturnCode_Success;
+}
+
+void SDKMinimalClient::OnLandscapeCallback(const Landscape* const p_Landscape) {
+    if (!s_Instance) return;
+    std::lock_guard<std::mutex> lock(s_Instance->m_DataMutex);
+    for (uint32_t i = 0; i < p_Landscape->gloveDevices.gloveCount; i++) {
+        if (p_Landscape->gloveDevices.gloves[i].side == Side_Right)
+            s_Instance->m_RightGloveID = p_Landscape->gloveDevices.gloves[i].id;
+    }
+}
+
+void SDKMinimalClient::OnErgonomicsCallback(const ErgonomicsStream* const p_Ergo) {
+    if (!s_Instance) return;
+    std::lock_guard<std::mutex> lock(s_Instance->m_DataMutex);
+    for (uint32_t i = 0; i < p_Ergo->dataCount; i++) {
+        if (p_Ergo->data[i].id == s_Instance->m_RightGloveID) s_Instance->m_RightGloveData = p_Ergo->data[i];
+    }
+}
+
+void SDKMinimalClient::OnTrackerStreamCallback(const TrackerStreamInfo* const p_Info) {
+    if (s_Instance && p_Info->trackerCount > 0) {
+        std::lock_guard<std::mutex> lock(s_Instance->m_DataMutex);
+        bool trackerFound = false;
+        TrackerData t_TrackerData;
+        for (uint32_t i = 0; i < p_Info->trackerCount; i++) {
+            if (CoreSdk_GetTrackerData(i, &t_TrackerData) == SDKReturnCode::SDKReturnCode_Success) {
+                if (t_TrackerData.trackerType == TrackerType::TrackerType_RightHand) {
+                    s_Instance->m_WristTracker = t_TrackerData;
+                    trackerFound = true;
+                    break;
+                }
+            }
+        }
+        // Fallback to the first tracker if RightHand is not explicitly found
+        if (!trackerFound && CoreSdk_GetTrackerData(0, &t_TrackerData) == SDKReturnCode::SDKReturnCode_Success) {
+            s_Instance->m_WristTracker = t_TrackerData;
+        }
+    }
+}
+
+void SDKMinimalClient::Run() {
+    // [중요] Ubuntu PC의 실제 IP로 수정하세요!
+    if (!InitializeUDP("127.0.0.1", 12345)) {
+        ClientLog::error("Failed to initialize UDP.");
+        return;
+    }
+
+    while (Connect() != ClientReturnCode::ClientReturnCode_Success) std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+
+    while (m_Running) {
+        {
+            std::lock_guard<std::mutex> lock(m_DataMutex);
+            SendUDPData(); // 실시간 패킷 전송
+
+            system("cls");
+            printf("=== [KAIST NREL] MANUS -> ROS2 Humble (UDP 50Hz) ===\n");
+            EulerAngles e = ToEulerAngles(m_WristTracker.rotation);
+            printf("[Wrist] Pos: X:%.3f Y:%.3f Z:%.3f | Euler: R:%.1f P:%.1f Y:%.1f\n",
+                m_WristTracker.position.x, m_WristTracker.position.y, m_WristTracker.position.z, e.roll, e.pitch, e.yaw);
+
+            if (m_RightGloveID != 0) {
+                printf("[Glove ID: 0x%X] Sending 15 Finger Joints...\n", m_RightGloveID);
+                printf("  Thumb:  MCP_Sp=%.2f MCP_St=%.2f PIP=%.2f DIP=%.2f\n",
+                    m_RightGloveData.data[20], m_RightGloveData.data[21], m_RightGloveData.data[22], m_RightGloveData.data[23]);
+                printf("  Index:  MCP_Sp=%.2f MCP_St=%.2f PIP=%.2f DIP=%.2f\n",
+                    m_RightGloveData.data[24], m_RightGloveData.data[25], m_RightGloveData.data[26], m_RightGloveData.data[27]);
+                printf("  Middle: MCP_Sp=%.2f MCP_St=%.2f PIP=%.2f DIP=%.2f\n",
+                    m_RightGloveData.data[28], m_RightGloveData.data[29], m_RightGloveData.data[30], m_RightGloveData.data[31]);
+                printf("  Ring:   MCP_Sp=%.2f MCP_St=%.2f PIP=%.2f DIP=%.2f\n",
+                    m_RightGloveData.data[32], m_RightGloveData.data[33], m_RightGloveData.data[34], m_RightGloveData.data[35]);
+                printf("  Pinky:  MCP_Sp=%.2f MCP_St=%.2f PIP=%.2f DIP=%.2f\n",
+                    m_RightGloveData.data[36], m_RightGloveData.data[37], m_RightGloveData.data[38], m_RightGloveData.data[39]);
+            }
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(20));
+        if (GetKeyDown(' ')) m_Running = false;
+        m_FrameCounter++;
+    }
+}
+
+ClientReturnCode SDKMinimalClient::Connect() {
+    if (CoreSdk_LookForHosts(1, true) != SDKReturnCode::SDKReturnCode_Success) return ClientReturnCode::ClientReturnCode_FailedToConnect;
+    uint32_t count = 0;
+    CoreSdk_GetNumberOfAvailableHostsFound(&count);
+    if (count == 0) return ClientReturnCode::ClientReturnCode_FailedToConnect;
+    ManusHost host;
+    CoreSdk_GetAvailableHostsFound(&host, 1);
+    return (CoreSdk_ConnectToHost(host) == SDKReturnCode::SDKReturnCode_Success) ? ClientReturnCode::ClientReturnCode_Success : ClientReturnCode::ClientReturnCode_FailedToConnect;
+}
+
+ClientReturnCode SDKMinimalClient::ShutDown() {
+    if (m_UdpInitialized) { closesocket(m_Socket); WSACleanup(); }
+    CoreSdk_ShutDown();
+    PlatformSpecificShutdown();
+    return ClientReturnCode::ClientReturnCode_Success;
+}
