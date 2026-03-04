@@ -20,14 +20,14 @@ The extracted data is packed into a custom `HandDataPacket` and broadcasted via 
 
 ## Core Files
 
-* `SDKMinimalClient.hpp` / `SDKMinimalClient.cpp`: Contains the main SDK logic, Core connection, Callback handlers, UDP Socket setup, and the main run-loop.
+* `TeleopMasterClient.hpp` / `TeleopMasterClient.cpp`: Contains the main SDK logic, Core connection, Callback handlers, UDP Socket setup, and the main run-loop.
 * `ManusSDK/`: Pre-compiled libraries, DLLs, and header files for Manus SDK.
 * `.vcxproj` / `.sln`: Visual Studio 2022 project files for building the client.
 
 ## Network Configuration
 
 By default, the UDP packets are sent to:
-* **Target IP**: `192.168.0.112` (Modify in `SDKMinimalClient.cpp::Run()`)
+* **Target IP**: `192.168.0.112` (Modify in `TeleopMasterClient.cpp::Run()`)
 * **Target Port**: `12345`
 * **Frequency**: ~50Hz (20ms sleep per cycle)
 
@@ -40,15 +40,15 @@ By default, the UDP packets are sent to:
 
 ### Building via MSBuild / PowerShell
 ```powershell
-cd SDKMinimalClient_Windows
-& "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" SDKMinimalClient.vcxproj /p:Configuration=Release /p:Platform=x64
+cd TeleopMasterClient_Windows
+& "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" TeleopMasterClient.vcxproj /p:Configuration=Release /p:Platform=x64
 ```
 *(Ensure the MSBuild path matches your Visual Studio installation.)*
 
 ### Running
 Once built successfully, the executable will be placed in the `Output/x64/Release/` folder.
 ```powershell
-.\Output\x64\Release\SDKMinimalClient_Windows.exe
+.\Output\x64\Release\TeleopMasterClient_Windows.exe
 ```
 
 Upon execution, the terminal will dynamically display the parsed Right Wrist positional and rotational data, along with the real-time angles of all 15 finger joints. Press `Spacebar` to exit gracefully.

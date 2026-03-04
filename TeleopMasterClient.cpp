@@ -1,4 +1,4 @@
-#include "SDKMinimalClient.hpp"
+#include "TeleopMasterClient.hpp"
 #include "ManusSDKTypes.h"
 #include <iostream>
 #include <thread>
@@ -6,9 +6,9 @@
 #include "ClientLogging.hpp"
 
 using ManusSDK::ClientLog;
-SDKMinimalClient* SDKMinimalClient::s_Instance = nullptr;
+TeleopMasterClient* TeleopMasterClient::s_Instance = nullptr;
 
-// Euler 각도 변환 헬퍼
+// Euler 각도 변???�퍼
 struct EulerAngles { float roll, pitch, yaw; };
 EulerAngles ToEulerAngles(ManusQuaternion q) {
     EulerAngles angles;
@@ -27,23 +27,23 @@ EulerAngles ToEulerAngles(ManusQuaternion q) {
 }
 
 int main(int argc, char* argv[]) {
-    SDKMinimalClient t_Client;
+    TeleopMasterClient t_Client;
     if (t_Client.Initialize() != ClientReturnCode::ClientReturnCode_Success) return -1;
     t_Client.Run();
     t_Client.ShutDown();
     return 0;
 }
 
-SDKMinimalClient::SDKMinimalClient() : m_Running(true), m_ConnectionType(ConnectionType::ConnectionType_Local) {
+TeleopMasterClient::TeleopMasterClient() : m_Running(true), m_ConnectionType(ConnectionType::ConnectionType_Local) {
     s_Instance = this;
     TrackerData_Init(&m_WristTracker);
     ErgonomicsData_Init(&m_RightGloveData);
 }
 
-SDKMinimalClient::~SDKMinimalClient() { s_Instance = nullptr; }
+TeleopMasterClient::~TeleopMasterClient() { s_Instance = nullptr; }
 
-// UDP 초기화
-bool SDKMinimalClient::InitializeUDP(const char* ip, int port) {
+// UDP 초기??
+bool TeleopMasterClient::InitializeUDP(const char* ip, int port) {
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) return false;
     m_Socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
@@ -56,8 +56,8 @@ bool SDKMinimalClient::InitializeUDP(const char* ip, int port) {
     return true;
 }
 
-// UDP 데이터 전송
-void SDKMinimalClient::SendUDPData() {
+// UDP ?�이???�송
+void TeleopMasterClient::SendUDPData() {
     if (!m_UdpInitialized) return;
     HandDataPacket packet;
     packet.frame = m_FrameCounter;
@@ -71,7 +71,7 @@ void SDKMinimalClient::SendUDPData() {
     packet.wristEuler[1] = e.pitch;
     packet.wristEuler[2] = e.yaw;
 
-    int offset = 20; // 오른손 데이터 오프셋
+    int offset = 20; // ?�른???�이???�프??
     for (int i = 0; i < 5; i++) {
         packet.fingerFlexion[i * 3 + 0] = m_RightGloveData.data[offset + (i * 4) + 1]; // MCP
         packet.fingerFlexion[i * 3 + 1] = m_RightGloveData.data[offset + (i * 4) + 2]; // PIP
@@ -81,12 +81,12 @@ void SDKMinimalClient::SendUDPData() {
     sendto(m_Socket, (char*)&packet, sizeof(packet), 0, (sockaddr*)&m_DestAddr, sizeof(m_DestAddr));
 }
 
-ClientReturnCode SDKMinimalClient::Initialize() {
+ClientReturnCode TeleopMasterClient::Initialize() {
     if (!PlatformSpecificInitialization()) return ClientReturnCode::ClientReturnCode_FailedToInitialize;
     return InitializeSDK();
 }
 
-ClientReturnCode SDKMinimalClient::InitializeSDK() {
+ClientReturnCode TeleopMasterClient::InitializeSDK() {
     if (CoreSdk_InitializeCore() != SDKReturnCode::SDKReturnCode_Success) return ClientReturnCode::ClientReturnCode_FailedToInitialize;
     RegisterAllCallbacks();
     CoordinateSystemVUH t_VUH = { AxisView::AxisView_XFromViewer, AxisPolarity::AxisPolarity_PositiveZ, Side::Side_Right, 1.0f };
@@ -94,14 +94,14 @@ ClientReturnCode SDKMinimalClient::InitializeSDK() {
     return ClientReturnCode::ClientReturnCode_Success;
 }
 
-ClientReturnCode SDKMinimalClient::RegisterAllCallbacks() {
+ClientReturnCode TeleopMasterClient::RegisterAllCallbacks() {
     CoreSdk_RegisterCallbackForTrackerStream(*OnTrackerStreamCallback);
     CoreSdk_RegisterCallbackForErgonomicsStream(*OnErgonomicsCallback);
     CoreSdk_RegisterCallbackForLandscapeStream(*OnLandscapeCallback);
     return ClientReturnCode::ClientReturnCode_Success;
 }
 
-void SDKMinimalClient::OnLandscapeCallback(const Landscape* const p_Landscape) {
+void TeleopMasterClient::OnLandscapeCallback(const Landscape* const p_Landscape) {
     if (!s_Instance) return;
     std::lock_guard<std::mutex> lock(s_Instance->m_DataMutex);
     for (uint32_t i = 0; i < p_Landscape->gloveDevices.gloveCount; i++) {
@@ -110,7 +110,7 @@ void SDKMinimalClient::OnLandscapeCallback(const Landscape* const p_Landscape) {
     }
 }
 
-void SDKMinimalClient::OnErgonomicsCallback(const ErgonomicsStream* const p_Ergo) {
+void TeleopMasterClient::OnErgonomicsCallback(const ErgonomicsStream* const p_Ergo) {
     if (!s_Instance) return;
     std::lock_guard<std::mutex> lock(s_Instance->m_DataMutex);
     for (uint32_t i = 0; i < p_Ergo->dataCount; i++) {
@@ -118,7 +118,7 @@ void SDKMinimalClient::OnErgonomicsCallback(const ErgonomicsStream* const p_Ergo
     }
 }
 
-void SDKMinimalClient::OnTrackerStreamCallback(const TrackerStreamInfo* const p_Info) {
+void TeleopMasterClient::OnTrackerStreamCallback(const TrackerStreamInfo* const p_Info) {
     if (s_Instance && p_Info->trackerCount > 0) {
         std::lock_guard<std::mutex> lock(s_Instance->m_DataMutex);
         bool trackerFound = false;
@@ -139,8 +139,8 @@ void SDKMinimalClient::OnTrackerStreamCallback(const TrackerStreamInfo* const p_
     }
 }
 
-void SDKMinimalClient::Run() {
-    // [중요] Ubuntu PC의 실제 IP로 수정하세요!
+void TeleopMasterClient::Run() {
+    // [중요] Ubuntu PC???�제 IP�??�정?�세??
     if (!InitializeUDP("127.0.0.1", 12345)) {
         ClientLog::error("Failed to initialize UDP.");
         return;
@@ -151,7 +151,7 @@ void SDKMinimalClient::Run() {
     while (m_Running) {
         {
             std::lock_guard<std::mutex> lock(m_DataMutex);
-            SendUDPData(); // 실시간 패킷 전송
+            SendUDPData(); // ?�시�??�킷 ?�송
 
             system("cls");
             printf("=== [KAIST NREL] MANUS -> ROS2 Humble (UDP 50Hz) ===\n");
@@ -179,7 +179,7 @@ void SDKMinimalClient::Run() {
     }
 }
 
-ClientReturnCode SDKMinimalClient::Connect() {
+ClientReturnCode TeleopMasterClient::Connect() {
     if (CoreSdk_LookForHosts(1, true) != SDKReturnCode::SDKReturnCode_Success) return ClientReturnCode::ClientReturnCode_FailedToConnect;
     uint32_t count = 0;
     CoreSdk_GetNumberOfAvailableHostsFound(&count);
@@ -189,7 +189,7 @@ ClientReturnCode SDKMinimalClient::Connect() {
     return (CoreSdk_ConnectToHost(host) == SDKReturnCode::SDKReturnCode_Success) ? ClientReturnCode::ClientReturnCode_Success : ClientReturnCode::ClientReturnCode_FailedToConnect;
 }
 
-ClientReturnCode SDKMinimalClient::ShutDown() {
+ClientReturnCode TeleopMasterClient::ShutDown() {
     if (m_UdpInitialized) { closesocket(m_Socket); WSACleanup(); }
     CoreSdk_ShutDown();
     PlatformSpecificShutdown();

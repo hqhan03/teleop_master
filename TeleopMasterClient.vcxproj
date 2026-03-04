@@ -15,9 +15,9 @@
     <IgnoreWarnCompileDuplicatedFilename>true</IgnoreWarnCompileDuplicatedFilename>
     <Keyword>Win32Proj</Keyword>
     <ProjectGuid>{cec27524-dcf6-4633-bbe6-537864fc77c7}</ProjectGuid>
-    <RootNamespace>SDKMinimalClient</RootNamespace>
+    <RootNamespace>TeleopMasterClient</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
-    <ProjectName>SDKMinimalClient_Windows</ProjectName>
+    <ProjectName>TeleopMasterClient_Windows</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
@@ -116,12 +116,12 @@
   <ItemGroup>
     <ClInclude Include="PlatformSpecific\ClientPlatformSpecific.hpp" />
     <ClInclude Include="PlatformSpecific\Windows\ClientPlatformSpecificTypes.hpp" />
-    <ClInclude Include="SDKMinimalClient.hpp" />
+    <ClInclude Include="TeleopMasterClient.hpp" />
     <ClInclude Include="ClientLogging.hpp" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="PlatformSpecific\Windows\ClientPlatformSpecific.cpp" />
-    <ClCompile Include="SDKMinimalClient.cpp" />
+    <ClCompile Include="TeleopMasterClient.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

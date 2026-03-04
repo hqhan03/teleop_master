@@ -29,11 +29,11 @@ enum class ClientReturnCode : int {
     ClientReturnCode_Success = 0, ClientReturnCode_FailedToInitialize, ClientReturnCode_FailedToConnect
 };
 
-class SDKMinimalClient : public SDKClientPlatformSpecific
+class TeleopMasterClient : public SDKClientPlatformSpecific
 {
 public:
-    SDKMinimalClient();
-    ~SDKMinimalClient();
+    TeleopMasterClient();
+    ~TeleopMasterClient();
     ClientReturnCode Initialize();
     ClientReturnCode InitializeSDK();
     void Run();
@@ -52,7 +52,7 @@ public:
 protected:
     ClientReturnCode Connect();
 
-    static SDKMinimalClient* s_Instance;
+    static TeleopMasterClient* s_Instance;
     bool m_Running;
     ConnectionType m_ConnectionType;
 
