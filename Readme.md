@@ -55,61 +55,40 @@ Upon execution, the terminal will dynamically display the parsed Right Wrist pos
 
 
 
-Manus Glove index
+## 🧤 Manus Glove Data Index
 
-엄지
-CMC_Fl/Ex
-CMC_Ab/Ad
-MCP_Fl/Ex
-IP_Fl/Ex
-검지
-MCP_Ab/Ad
-MCP_Fl/Ex
-PIP_Fl/Ex
-DIP_Fl/Ex
-중지
-MCP_Ab/Ad
-MCP_Fl/Ex
-PIP_Fl/Ex
-DIP_Fl/Ex
-약지
-MCP_Ab/Ad
-MCP_Fl/Ex
-PIP_Fl/Ex
-DIP_Fl/Ex
-소지
-MCP_Ab/Ad
-MCP_Fl/Ex
-PIP_Fl/Ex
-DIP_Fl/Ex
+| Finger | Joint 1 | Joint 2 | Joint 3 | Joint 4 |
+| :--- | :--- | :--- | :--- | :--- |
+| **엄지 (Thumb)** | CMC_Fl/Ex | CMC_Ab/Ad | MCP_Fl/Ex | IP_Fl/Ex |
+| **검지 (Index)** | MCP_Ab/Ad | MCP_Fl/Ex | PIP_Fl/Ex | DIP_Fl/Ex |
+| **중지 (Middle)**| MCP_Ab/Ad | MCP_Fl/Ex | PIP_Fl/Ex | DIP_Fl/Ex |
+| **약지 (Ring)**  | MCP_Ab/Ad | MCP_Fl/Ex | PIP_Fl/Ex | DIP_Fl/Ex |
+| **소지 (Pinky)** | MCP_Ab/Ad | MCP_Fl/Ex | PIP_Fl/Ex | DIP_Fl/Ex |
 
+---
 
+## 🤖 Tesollo Hand Motor Index & Range
 
-Tesollo hand 각 모터 index 및 가동범위
-
-엄지
-Motor1 -22~77 CMC_Ab/Ad
-Motor2 0~155 CMC_Fl/Ex
-Motor3 -90~90 MCP_Fl/Ex
-Motor4 -90~90 IP_Fl/Ex
-검지
-Motor5 -31~20 MCP_Ab/Ad
-Motor6 0~115 MCP_Fl/Ex
-Motor7 -90~90 PIP_Fl/Ex
-Motor8 -90~90 DIP_Fl/Ex
-중지
-Motor9 -30~30 MCP_Ab/Ad
-Motor10 0~115 MCP_Fl/Ex
-Motor11 -90~90 PIP_Fl/Ex
-Motor12 -90~90 DIP_Fl/Ex
-약지
-Motor13 -15~32 MCP_Ab/Ad
-Motor14 0~110 MCP_Fl/Ex
-Motor15 -90~90 PIP_Fl/Ex
-Motor16 -90~90 DIP_Fl/Ex
-소지
-Motor17 0~60 
-Motor18 -15~90 MCP_Ab/Ad
-Motor19 -90~90 MCP_Fl/Ex
-Motor20 -90~90 IP_Fl/Ex
+| Finger | Motor Index | Range (Degrees) | Joint Type |
+| :--- | :---: | :---: | :--- |
+| **엄지 (Thumb)** | Motor 1 | `-22 ~ 77` | CMC_Ab/Ad |
+| | Motor 2 | `0 ~ 155` | CMC_Fl/Ex |
+| | Motor 3 | `-90 ~ 90` | MCP_Fl/Ex |
+| | Motor 4 | `-90 ~ 90` | IP_Fl/Ex |
+| **검지 (Index)** | Motor 5 | `-31 ~ 20` | MCP_Ab/Ad |
+| | Motor 6 | `0 ~ 115` | MCP_Fl/Ex |
+| | Motor 7 | `-90 ~ 90` | PIP_Fl/Ex |
+| | Motor 8 | `-90 ~ 90` | DIP_Fl/Ex |
+| **중지 (Middle)**| Motor 9 | `-30 ~ 30` | MCP_Ab/Ad |
+| | Motor 10 | `0 ~ 115` | MCP_Fl/Ex |
+| | Motor 11 | `-90 ~ 90` | PIP_Fl/Ex |
+| | Motor 12 | `-90 ~ 90` | DIP_Fl/Ex |
+| **약지 (Ring)** | Motor 13 | `-15 ~ 32` | MCP_Ab/Ad |
+| | Motor 14 | `0 ~ 110` | MCP_Fl/Ex |
+| | Motor 15 | `-90 ~ 90` | PIP_Fl/Ex |
+| | Motor 16 | `-90 ~ 90` | DIP_Fl/Ex |
+| **소지 (Pinky)** | Motor 17 | `0 ~ 60` | - |
+| | Motor 18 | `-15 ~ 90` | MCP_Ab/Ad |
+| | Motor 19 | `-90 ~ 90` | MCP_Fl/Ex |
+| | Motor 20 | `-90 ~ 90` | IP_Fl/Ex |
 
