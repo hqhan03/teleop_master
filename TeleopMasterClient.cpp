@@ -162,15 +162,15 @@ void TeleopMasterClient::Run() {
 
             if (m_RightGloveID != 0) {
                 printf("[Glove ID: 0x%X] Sending 15 Finger Joints...\n", m_RightGloveID);
-                printf("  Thumb:  MCP_Sp=%.2f MCP_St=%.2f PIP=%.2f DIP=%.2f\n",
+                printf("  Thumb:  CMC_Fl/Ex=%.2f CMC_Ab/Ad=%.2f MCP_Fl/Ex=%.2f IP_Fl/Ex=%.2f\n",
                     m_RightGloveData.data[20], m_RightGloveData.data[21], m_RightGloveData.data[22], m_RightGloveData.data[23]);
-                printf("  Index:  MCP_Sp=%.2f MCP_St=%.2f PIP=%.2f DIP=%.2f\n",
+                printf("  Index:  MCP_Ab/Ad=%.2f MCP_Fl/Ex=%.2f PIP_Fl/Ex=%.2f DIP_Fl/Ex=%.2f\n",
                     m_RightGloveData.data[24], m_RightGloveData.data[25], m_RightGloveData.data[26], m_RightGloveData.data[27]);
-                printf("  Middle: MCP_Sp=%.2f MCP_St=%.2f PIP=%.2f DIP=%.2f\n",
+                printf("  Middle: MCP_Ab/Ad=%.2f MCP_Fl/Ex=%.2f PIP_Fl/Ex=%.2f DIP_Fl/Ex=%.2f\n",
                     m_RightGloveData.data[28], m_RightGloveData.data[29], m_RightGloveData.data[30], m_RightGloveData.data[31]);
-                printf("  Ring:   MCP_Sp=%.2f MCP_St=%.2f PIP=%.2f DIP=%.2f\n",
+                printf("  Ring:   MCP_Ab/Ad=%.2f MCP_Fl/Ex=%.2f PIP_Fl/Ex=%.2f DIP_Fl/Ex=%.2f\n",
                     m_RightGloveData.data[32], m_RightGloveData.data[33], m_RightGloveData.data[34], m_RightGloveData.data[35]);
-                printf("  Pinky:  MCP_Sp=%.2f MCP_St=%.2f PIP=%.2f DIP=%.2f\n",
+                printf("  Pinky:  MCP_Ab/Ad=%.2f MCP_Fl/Ex=%.2f PIP_Fl/Ex=%.2f DIP_Fl/Ex=%.2f\n",
                     m_RightGloveData.data[36], m_RightGloveData.data[37], m_RightGloveData.data[38], m_RightGloveData.data[39]);
             }
         }
