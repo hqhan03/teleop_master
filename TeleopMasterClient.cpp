@@ -8,23 +8,7 @@
 using ManusSDK::ClientLog;
 TeleopMasterClient* TeleopMasterClient::s_Instance = nullptr;
 
-// Euler 각도 변???�퍼
-struct EulerAngles { float roll, pitch, yaw; };
-EulerAngles ToEulerAngles(ManusQuaternion q) {
-    EulerAngles angles;
-    float sinr_cosp = 2 * (q.w * q.x + q.y * q.z);
-    float cosr_cosp = 1 - 2 * (q.x * q.x + q.y * q.y);
-    angles.roll = std::atan2(sinr_cosp, cosr_cosp) * (180.0f / 3.141592f);
-
-    float sinp = 2 * (q.w * q.y - q.z * q.x);
-    if (std::abs(sinp) >= 1) angles.pitch = std::copysign(90.0f, sinp);
-    else angles.pitch = std::asin(sinp) * (180.0f / 3.141592f);
-
-    float siny_cosp = 2 * (q.w * q.z + q.x * q.y);
-    float cosy_cosp = 1 - 2 * (q.y * q.y + q.z * q.z);
-    angles.yaw = std::atan2(siny_cosp, cosy_cosp) * (180.0f / 3.141592f);
-    return angles;
-}
+// Using raw Quaternion directly
 
 int main(int argc, char* argv[]) {
     TeleopMasterClient t_Client;
@@ -66,10 +50,10 @@ void TeleopMasterClient::SendUDPData() {
     packet.wristPos[1] = m_WristTracker.position.y;
     packet.wristPos[2] = m_WristTracker.position.z;
 
-    EulerAngles e = ToEulerAngles(m_WristTracker.rotation);
-    packet.wristEuler[0] = e.roll;
-    packet.wristEuler[1] = e.pitch;
-    packet.wristEuler[2] = e.yaw;
+    packet.wristQuaternion[0] = m_WristTracker.rotation.w;
+    packet.wristQuaternion[1] = m_WristTracker.rotation.x;
+    packet.wristQuaternion[2] = m_WristTracker.rotation.y;
+    packet.wristQuaternion[3] = m_WristTracker.rotation.z;
 
     int offset = 20; // ?�른???�이???�프??
     for (int i = 0; i < 5; i++) {
@@ -156,9 +140,9 @@ void TeleopMasterClient::Run() {
 
             system("cls");
             printf("=== [KAIST NREL] MANUS -> ROS2 Humble (UDP 50Hz) ===\n");
-            EulerAngles e = ToEulerAngles(m_WristTracker.rotation);
-            printf("[Wrist] Pos: X:%.3f Y:%.3f Z:%.3f | Euler: R:%.1f P:%.1f Y:%.1f\n",
-                m_WristTracker.position.x, m_WristTracker.position.y, m_WristTracker.position.z, e.roll, e.pitch, e.yaw);
+            printf("[Wrist] Pos: X:%.3f Y:%.3f Z:%.3f | Quat: W:%.3f X:%.3f Y:%.3f Z:%.3f\n",
+                m_WristTracker.position.x, m_WristTracker.position.y, m_WristTracker.position.z,
+                m_WristTracker.rotation.w, m_WristTracker.rotation.x, m_WristTracker.rotation.y, m_WristTracker.rotation.z);
 
             if (m_RightGloveID != 0) {
                 printf("[Glove ID: 0x%X] Sending 15 Finger Joints...\n", m_RightGloveID);
