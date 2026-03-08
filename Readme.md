@@ -64,7 +64,7 @@ Upon execution, the terminal will dynamically display the parsed Right Wrist pos
 | **중지 (Middle)**| MCP_Ab(+)/Ad(-) | MCP_Fl(+)/Ex(-) | PIP_Fl(+)/Ex(-) | DIP_Fl(+)/Ex(-) |
 | **약지 (Ring)**  | MCP_Ab(+)/Ad(-) | MCP_Fl(+)/Ex(-) | PIP_Fl(+)/Ex(-) | DIP_Fl(+)/Ex(-) |
 | **소지 (Pinky)** | MCP_Ab(+)/Ad(-) | MCP_Fl(+)/Ex(-) | PIP_Fl(+)/Ex(-) | DIP_Fl(+)/Ex(-) |
-| Ab/Ad 기준은 손등을 보았을 때 반시계가 Ab, 시계가 Ad |
+| 손바닥을 보았을 때 시계방향이 Ab, 반시계방향이 Ad |
 
 ---
 
@@ -73,24 +73,53 @@ Upon execution, the terminal will dynamically display the parsed Right Wrist pos
 
 | Finger | Motor Index | Range (Degrees) | Joint Type |
 | :--- | :---: | :---: | :--- |
-| **엄지 (Thumb)** | Motor 1 | `-22 ~ 77` | CMC_Ab/Ad |
-| | Motor 2 | `0 ~ 155` | CMC_Fl/Ex |
-| | Motor 3 | `-90 ~ 90` | MCP_Fl/Ex |
-| | Motor 4 | `-90 ~ 90` | IP_Fl/Ex |
-| **검지 (Index)** | Motor 5 | `-31 ~ 20` | MCP_Ab/Ad |
-| | Motor 6 | `0 ~ 115` | MCP_Fl/Ex |
-| | Motor 7 | `-90 ~ 90` | PIP_Fl/Ex |
-| | Motor 8 | `-90 ~ 90` | DIP_Fl/Ex |
-| **중지 (Middle)**| Motor 9 | `-30 ~ 30` | MCP_Ab/Ad |
-| | Motor 10 | `0 ~ 115` | MCP_Fl/Ex |
-| | Motor 11 | `-90 ~ 90` | PIP_Fl/Ex |
-| | Motor 12 | `-90 ~ 90` | DIP_Fl/Ex |
-| **약지 (Ring)** | Motor 13 | `-15 ~ 32` | MCP_Ab/Ad |
-| | Motor 14 | `0 ~ 110` | MCP_Fl/Ex |
-| | Motor 15 | `-90 ~ 90` | PIP_Fl/Ex |
-| | Motor 16 | `-90 ~ 90` | DIP_Fl/Ex |
-| **소지 (Pinky)** | Motor 17 | `0 ~ 60` | - |
-| | Motor 18 | `-15 ~ 90` | MCP_Ab/Ad |
-| | Motor 19 | `-90 ~ 90` | MCP_Fl/Ex |
-| | Motor 20 | `-90 ~ 90` | IP_Fl/Ex |
+| **엄지 (Thumb)** | Motor 1 | `-22 ~ 77` | CMC_Ab(-)/Ad(+) |
+| | Motor 2 | `0 ~ 155` | CMC_Fl(-)/Ex(+) |
+| | Motor 3 | `-90 ~ 90` | MCP_Fl(+)/Ex(-) |
+| | Motor 4 | `-90 ~ 90` | IP_Fl(+)/Ex(-) |
+| **검지 (Index)** | Motor 5 | `-31 ~ 20` | MCP_Ab(-)/Ad(+) |
+| | Motor 6 | `0 ~ 115` | MCP_Fl(+)/Ex(-) |
+| | Motor 7 | `-90 ~ 90` | PIP_Fl(+)/Ex(-) |
+| | Motor 8 | `-90 ~ 90` | DIP_Fl(+)/Ex(-) |
+| **중지 (Middle)**| Motor 9 | `-30 ~ 30` | MCP_Ab(-)/Ad(+) |
+| | Motor 10 | `0 ~ 115` | MCP_Fl(+)/Ex(-) |
+| | Motor 11 | `-90 ~ 90` | PIP_Fl(+)/Ex(-) |
+| | Motor 12 | `-90 ~ 90` | DIP_Fl(+)/Ex(-) |
+| **약지 (Ring)** | Motor 13 | `-15 ~ 32` | MCP_Ab(-)/Ad(+) |
+| | Motor 14 | `0 ~ 110` | MCP_Fl(+)/Ex(-) |
+| | Motor 15 | `-90 ~ 90` | PIP_Fl(+)/Ex(-) |
+| | Motor 16 | `-90 ~ 90` | DIP_Fl(+)/Ex(-) |
+| **소지 (Pinky)** | Motor 17 | `0 ~ 60` | 위(손가락)에서 봤을 때 반시계가 (+) |
+| | Motor 18 | `-15 ~ 90` | MCP_Ab(-)/Ad(+) |
+| | Motor 19 | `-90 ~ 90` | MCP_Fl(+)/Ex(-) |
+| | Motor 20 | `-90 ~ 90` | IP_Fl(+)/Ex(-) |
+| 손바닥을 보았을 때 시계방향이 Ab, 반시계방향이 Ad |
 
+---
+
+## 📊 종합 맵핑 비교표 (All Motors)
+
+Manus Glove 데이터와 Tesollo Hand 모터 간의 통합된 비교표입니다.
+
+| 손가락 (Finger) | 동작 (Joint Type) | Manus 배열 (Joint) | Manus 측정 방향 | Tesollo Motor | Tesollo 가동 범위 | Tesollo 측정 방향 | 비고 (Mapping 주의점) |
+| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :--- |
+| **엄지 (Thumb)** | CMC Ab/Ad | Joint 2 | `Ab(+) / Ad(-)` | Motor 1 | `-22 ~ 77` | `Ab(-) / Ad(+)` | **부호 반전 (-1)** |
+| | CMC Fl/Ex | Joint 1 | `Fl(+) / Ex(-)` | Motor 2 | `0 ~ 155` | `Fl(-) / Ex(+)` | **순서 교차 & 부호 반전 (-1)** |
+| | MCP Fl/Ex | Joint 3 | `Fl(+) / Ex(-)` | Motor 3 | `-90 ~ 90` | `Fl(+) / Ex(-)` | |
+| | IP Fl/Ex | Joint 4 | `Fl(+) / Ex(-)` | Motor 4 | `-90 ~ 90` | `Fl(+) / Ex(-)` | |
+| **검지 (Index)** | MCP Ab/Ad | Joint 1 | `Ab(+) / Ad(-)` | Motor 5 | `-31 ~ 20` | `Ab(-) / Ad(+)` | **부호 반전 (-1)** |
+| | MCP Fl/Ex | Joint 2 | `Fl(+) / Ex(-)` | Motor 6 | `0 ~ 115` | `Fl(+) / Ex(-)` | |
+| | PIP Fl/Ex | Joint 3 | `Fl(+) / Ex(-)` | Motor 7 | `-90 ~ 90` | `Fl(+) / Ex(-)` | |
+| | DIP Fl/Ex | Joint 4 | `Fl(+) / Ex(-)` | Motor 8 | `-90 ~ 90` | `Fl(+) / Ex(-)` | |
+| **중지 (Middle)**| MCP Ab/Ad | Joint 1 | `Ab(+) / Ad(-)` | Motor 9 | `-30 ~ 30` | `Ab(-) / Ad(+)` | **부호 반전 (-1)** |
+| | MCP Fl/Ex | Joint 2 | `Fl(+) / Ex(-)` | Motor 10 | `0 ~ 115` | `Fl(+) / Ex(-)` | |
+| | PIP Fl/Ex | Joint 3 | `Fl(+) / Ex(-)` | Motor 11 | `-90 ~ 90` | `Fl(+) / Ex(-)` | |
+| | DIP Fl/Ex | Joint 4 | `Fl(+) / Ex(-)` | Motor 12 | `-90 ~ 90` | `Fl(+) / Ex(-)` | |
+| **약지 (Ring)** | MCP Ab/Ad | Joint 1 | `Ab(+) / Ad(-)` | Motor 13 | `-15 ~ 32` | `Ab(-) / Ad(+)` | **부호 반전 (-1)** |
+| | MCP Fl/Ex | Joint 2 | `Fl(+) / Ex(-)` | Motor 14 | `0 ~ 110` | `Fl(+) / Ex(-)` | |
+| | PIP Fl/Ex | Joint 3 | `Fl(+) / Ex(-)` | Motor 15 | `-90 ~ 90` | `Fl(+) / Ex(-)` | |
+| | DIP Fl/Ex | Joint 4 | `Fl(+) / Ex(-)` | Motor 16 | `-90 ~ 90` | `Fl(+) / Ex(-)` | |
+| **소지 (Pinky)** | 부가 관절 (벌림) | - | - | Motor 17 | `0 ~ 60` | 반시계방향(+) | Manus 측정값 없음 |
+| | MCP Ab/Ad | Joint 1 | `Ab(+) / Ad(-)` | Motor 18 | `-15 ~ 90` | `Ab(-) / Ad(+)` | **부호 반전 (-1)** |
+| | MCP Fl/Ex | Joint 2 | `Fl(+) / Ex(-)` | Motor 19 | `-90 ~ 90` | `Fl(+) / Ex(-)` | |
+| | IP Fl/Ex | Joint 3, 4 | `Fl(+) / Ex(-)` | Motor 20 | `-90 ~ 90` | `Fl(+) / Ex(-)` | Tesollo는 IP 관절 1개 |
