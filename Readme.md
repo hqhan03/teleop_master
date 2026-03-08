@@ -59,13 +59,15 @@ Upon execution, the terminal will dynamically display the parsed Right Wrist pos
 
 | Finger | Joint 1 | Joint 2 | Joint 3 | Joint 4 |
 | :--- | :--- | :--- | :--- | :--- |
-| **엄지 (Thumb)** | CMC_Fl/Ex | CMC_Ab/Ad | MCP_Fl/Ex | IP_Fl/Ex |
-| **검지 (Index)** | MCP_Ab/Ad | MCP_Fl/Ex | PIP_Fl/Ex | DIP_Fl/Ex |
-| **중지 (Middle)**| MCP_Ab/Ad | MCP_Fl/Ex | PIP_Fl/Ex | DIP_Fl/Ex |
-| **약지 (Ring)**  | MCP_Ab/Ad | MCP_Fl/Ex | PIP_Fl/Ex | DIP_Fl/Ex |
-| **소지 (Pinky)** | MCP_Ab/Ad | MCP_Fl/Ex | PIP_Fl/Ex | DIP_Fl/Ex |
+| **엄지 (Thumb)** | CMC_Fl(+)/Ex(-) | CMC_Ab(+)/Ad(-) | MCP_Fl(+)/Ex(-) | IP_Fl(+)/Ex(-) |
+| **검지 (Index)** | MCP_Ab(+)/Ad(-) | MCP_Fl(+)/Ex(-) | PIP_Fl(+)/Ex(-) | DIP_Fl(+)/Ex(-) |
+| **중지 (Middle)**| MCP_Ab(+)/Ad(-) | MCP_Fl(+)/Ex(-) | PIP_Fl(+)/Ex(-) | DIP_Fl(+)/Ex(-) |
+| **약지 (Ring)**  | MCP_Ab(+)/Ad(-) | MCP_Fl(+)/Ex(-) | PIP_Fl(+)/Ex(-) | DIP_Fl(+)/Ex(-) |
+| **소지 (Pinky)** | MCP_Ab(+)/Ad(-) | MCP_Fl(+)/Ex(-) | PIP_Fl(+)/Ex(-) | DIP_Fl(+)/Ex(-) |
+| Ab/Ad 기준은 손등을 보았을 때 반시계가 Ab, 시계가 Ad |
 
 ---
+
 
 ## 🤖 Tesollo Hand Motor Index & Range
 
