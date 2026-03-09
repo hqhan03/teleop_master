@@ -1,4 +1,4 @@
-#include "TeleopMasterClient.hpp"
+﻿#include "TeleopMasterClient.hpp"
 #include "ManusSDKTypes.h"
 #include <iostream>
 #include <thread>
@@ -26,7 +26,7 @@ TeleopMasterClient::TeleopMasterClient() : m_Running(true), m_ConnectionType(Con
 
 TeleopMasterClient::~TeleopMasterClient() { s_Instance = nullptr; }
 
-// UDP 초기??
+// UDP 珥덇린??(Initialize UDP)
 bool TeleopMasterClient::InitializeUDP(const char* ip, int port) {
     WSADATA wsaData;
     if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) return false;
@@ -40,7 +40,7 @@ bool TeleopMasterClient::InitializeUDP(const char* ip, int port) {
     return true;
 }
 
-// UDP ?�이???�송
+// UDP ?占쎌씠???占쎌넚
 void TeleopMasterClient::SendUDPData() {
     if (!m_UdpInitialized) return;
     HandDataPacket packet;
@@ -55,7 +55,7 @@ void TeleopMasterClient::SendUDPData() {
     packet.wristQuaternion[2] = m_WristTracker.rotation.y;
     packet.wristQuaternion[3] = m_WristTracker.rotation.z;
 
-    int offset = 20; // ?�른???�이???�프??
+    int offset = 20; // 오른손 관절각 데이터 오프셋 (Right Hand Joint Offset)
     for (int i = 0; i < 5; i++) {
         packet.fingerFlexion[i * 4 + 0] = m_RightGloveData.data[offset + (i * 4) + 0]; // MCP Spread
         packet.fingerFlexion[i * 4 + 1] = m_RightGloveData.data[offset + (i * 4) + 1]; // MCP Stretch
@@ -125,7 +125,7 @@ void TeleopMasterClient::OnTrackerStreamCallback(const TrackerStreamInfo* const 
 }
 
 void TeleopMasterClient::Run() {
-    // [중요] Ubuntu PC???�제 IP�??�정?�세??
+    // [중요] 타겟 수신 PC(예: Ubuntu)의 실제 IP로 변경하세요.
     if (!InitializeUDP("192.168.0.112", 12345)) {
         ClientLog::error("Failed to initialize UDP.");
         return;
@@ -136,7 +136,7 @@ void TeleopMasterClient::Run() {
     while (m_Running) {
         {
             std::lock_guard<std::mutex> lock(m_DataMutex);
-            SendUDPData(); // ?�시�??�킷 ?�송
+            SendUDPData(); // 실시간 패킷 전송
 
             system("cls");
             printf("=== [KAIST NREL] MANUS -> ROS2 Humble (UDP 50Hz) ===\n");
@@ -180,4 +180,5 @@ ClientReturnCode TeleopMasterClient::ShutDown() {
     PlatformSpecificShutdown();
     return ClientReturnCode::ClientReturnCode_Success;
 }
+
 
