@@ -215,7 +215,7 @@ void TeleopMasterClient::OnTrackerStreamCallback(const TrackerStreamInfo* const 
 
 // 메인 동작 루프: UDP 설정, Manus 호스트 연결, 실시간 데이터 송신 및 콘솔 출력 수행
 void TeleopMasterClient::Run() {
-    
+
     // [중요] 타겟 수신 PC (예: ROS2가 실행 중인 Ubuntu)의 실제 IP 및 Port로 변경하세요.
     if (!InitializeUDP("192.168.0.112", 12345)) {
         ClientLog::error("Failed to initialize UDP.");
@@ -262,7 +262,7 @@ void TeleopMasterClient::Run() {
 
             if (m_RightGloveID != 0) {
                 printf("[MANUS Glove ID: 0x%X] Sending 20 Finger Joints...\n", m_RightGloveID);
-                printf("  Thumb:  MCPSpread=%.2f MCPStrech=%.2f PIPStrech=%.2f DIPStrech=%.2f\n",
+                printf("  Thumb:  MCPSpread=%.2f MCPStretch=%.2f PIPStretch=%.2f DIPStretch=%.2f\n",
                     m_RightGloveData.data[20], m_RightGloveData.data[21], m_RightGloveData.data[22], m_RightGloveData.data[23]);
                 printf("  Index:  MCP_Ab/Ad=%.2f MCP_Fl/Ex=%.2f PIP_Fl/Ex=%.2f DIP_Fl/Ex=%.2f\n",
                     m_RightGloveData.data[24], m_RightGloveData.data[25], m_RightGloveData.data[26], m_RightGloveData.data[27]);
