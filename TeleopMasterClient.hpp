@@ -18,6 +18,7 @@ struct HandDataPacket {
     float wristPos[3];   // X, Y, Z (meters)
     float wristQuaternion[4]; // w, x, y, z
     float fingerFlexion[20]; // Thumb, Index, Middle, Ring, Pinky (MCP_Sp, MCP_St, PIP, DIP)
+    float fingertipPos[15]; // 5 fingertips × (X, Y, Z) — Thumb, Index, Middle, Ring, Pinky
 };
 #pragma pack(pop)
 
@@ -42,12 +43,13 @@ public:
 
     // UDP 관련 함수
     bool InitializeUDP(const char* ip, int port);
-    void SendUDPData();
+    void SendUDPData(float posX, float posY, float posZ, float rotW, float rotX, float rotY, float rotZ);
 
     // 콜백 함수
     static void OnTrackerStreamCallback(const TrackerStreamInfo* const p_TrackerStreamInfo);
     static void OnErgonomicsCallback(const ErgonomicsStream* const p_Ergo);
     static void OnLandscapeCallback(const Landscape* const p_Landscape);
+    static void OnRawSkeletonStreamCallback(const SkeletonStreamInfo* const p_Info);
 
 protected:
     ClientReturnCode Connect();
@@ -63,6 +65,23 @@ protected:
 
     uint32_t m_RightGloveID = 0;
     uint32_t m_FrameCounter = 0;
+
+    // Raw skeleton fingertip data
+    bool m_TipNodeIdsResolved = false;
+    uint32_t m_TipNodeIndices[5] = {0}; // Indices into SkeletonNode array for 5 fingertip nodes
+    float m_FingertipPositions[15] = {0}; // XYZ for 5 fingertips (Thumb, Index, Middle, Ring, Pinky)
+
+    // Tracker Calibration (Zeroing)
+    bool m_Calibrated = false;
+    float m_PosOffsetX = 0.0f;
+    float m_PosOffsetY = 0.0f;
+    float m_PosOffsetZ = 0.0f;
+    
+    // Quaternion offset (inverse of the zero rotation)
+    float m_RotOffsetW = 1.0f;
+    float m_RotOffsetX = 0.0f;
+    float m_RotOffsetY = 0.0f;
+    float m_RotOffsetZ = 0.0f;
 
     // UDP 통신 멤버
     SOCKET m_Socket;

@@ -1,4 +1,4 @@
-﻿#include "TeleopMasterClient.hpp"
+#include "TeleopMasterClient.hpp"
 #include "ManusSDKTypes.h"
 #include <iostream>
 #include <thread>
@@ -54,22 +54,22 @@ bool TeleopMasterClient::InitializeUDP(const char* ip, int port) {
 
 
 // 수집된 Hand/Wrist 데이터를 UDP 패킷 형태로 직렬화하여 송신
-void TeleopMasterClient::SendUDPData() {
+void TeleopMasterClient::SendUDPData(float posX, float posY, float posZ, float rotW, float rotX, float rotY, float rotZ) {
     if (!m_UdpInitialized) return;
     
     HandDataPacket packet;
     packet.frame = m_FrameCounter;
 
-    // 1. 손목 트래커 위치 데이터 (X, Y, Z)
-    packet.wristPos[0] = m_WristTracker.position.x;
-    packet.wristPos[1] = m_WristTracker.position.y;
-    packet.wristPos[2] = m_WristTracker.position.z;
+    // 1. 손목 트래커 위치 데이터 (X, Y, 기호 Z)
+    packet.wristPos[0] = posX;
+    packet.wristPos[1] = posY;
+    packet.wristPos[2] = posZ;
 
     // 2. 손목 트래커 회전 데이터 (W, X, Y, Z 쿼터니언)
-    packet.wristQuaternion[0] = m_WristTracker.rotation.w;
-    packet.wristQuaternion[1] = m_WristTracker.rotation.x;
-    packet.wristQuaternion[2] = m_WristTracker.rotation.y;
-    packet.wristQuaternion[3] = m_WristTracker.rotation.z;
+    packet.wristQuaternion[0] = rotW;
+    packet.wristQuaternion[1] = rotX;
+    packet.wristQuaternion[2] = rotY;
+    packet.wristQuaternion[3] = rotZ;
 
     // 3. 우측 글로브 손가락 관절 데이터 추출 (오프셋 20부터 각 손가락당 4개의 관절 데이터 존재)
     int offset = 20;
@@ -79,6 +79,11 @@ void TeleopMasterClient::SendUDPData() {
         packet.fingerFlexion[i * 4 + 1] = m_RightGloveData.data[offset + (i * 4) + 1];
         packet.fingerFlexion[i * 4 + 2] = m_RightGloveData.data[offset + (i * 4) + 2];
         packet.fingerFlexion[i * 4 + 3] = m_RightGloveData.data[offset + (i * 4) + 3];
+    }
+
+    // 4. 손끝(Fingertip) 위치 데이터 복사 (5 fingers × XYZ)
+    for (int i = 0; i < 15; i++) {
+        packet.fingertipPos[i] = m_FingertipPositions[i];
     }
 
     // UDP 데이터 전송
@@ -102,6 +107,7 @@ ClientReturnCode TeleopMasterClient::RegisterAllCallbacks() {
     CoreSdk_RegisterCallbackForTrackerStream(*OnTrackerStreamCallback);
     CoreSdk_RegisterCallbackForErgonomicsStream(*OnErgonomicsCallback);
     CoreSdk_RegisterCallbackForLandscapeStream(*OnLandscapeCallback);
+    CoreSdk_RegisterCallbackForRawSkeletonStream(*OnRawSkeletonStreamCallback);
     return ClientReturnCode::ClientReturnCode_Success;
 }
 
@@ -121,6 +127,64 @@ void TeleopMasterClient::OnErgonomicsCallback(const ErgonomicsStream* const p_Er
     std::lock_guard<std::mutex> lock(s_Instance->m_DataMutex);
     for (uint32_t i = 0; i < p_Ergo->dataCount; i++) {
         if (p_Ergo->data[i].id == s_Instance->m_RightGloveID) s_Instance->m_RightGloveData = p_Ergo->data[i];
+    }
+}
+
+// [Raw Skeleton 콜백] 원시 골격 데이터를 수신하여 손끝(Fingertip) 위치를 추출
+void TeleopMasterClient::OnRawSkeletonStreamCallback(const SkeletonStreamInfo* const p_Info) {
+    if (!s_Instance || !p_Info || p_Info->skeletonsCount == 0) return;
+    std::lock_guard<std::mutex> lock(s_Instance->m_DataMutex);
+
+    if (s_Instance->m_RightGloveID == 0) return;
+
+    // 스트림에서 우측 글로브에 해당하는 원시 골격을 찾기
+    for (uint32_t i = 0; i < p_Info->skeletonsCount; i++) {
+        RawSkeletonInfo t_Info;
+        if (CoreSdk_GetRawSkeletonInfo(i, &t_Info) != SDKReturnCode::SDKReturnCode_Success) continue;
+        if (t_Info.gloveId != s_Instance->m_RightGloveID) continue;
+        if (t_Info.nodesCount == 0) continue;
+
+        // Tip 노드 인덱스를 한 번만 확인 (최초 프레임에서 매핑 수행)
+        if (!s_Instance->m_TipNodeIdsResolved) {
+            uint32_t nodeCount = 0;
+            if (CoreSdk_GetRawSkeletonNodeCount(s_Instance->m_RightGloveID, nodeCount) != SDKReturnCode::SDKReturnCode_Success) break;
+            if (nodeCount == 0) break;
+
+            std::vector<NodeInfo> nodeInfos(nodeCount);
+            if (CoreSdk_GetRawSkeletonNodeInfoArray(s_Instance->m_RightGloveID, nodeInfos.data(), nodeCount) != SDKReturnCode::SDKReturnCode_Success) break;
+
+            // ChainType → fingertipPos 배열 인덱스 매핑
+            for (uint32_t n = 0; n < nodeCount; n++) {
+                if (nodeInfos[n].fingerJointType != FingerJointType_Tip) continue;
+                int fingerIdx = -1;
+                switch (nodeInfos[n].chainType) {
+                    case ChainType_FingerThumb:  fingerIdx = 0; break;
+                    case ChainType_FingerIndex:  fingerIdx = 1; break;
+                    case ChainType_FingerMiddle: fingerIdx = 2; break;
+                    case ChainType_FingerRing:   fingerIdx = 3; break;
+                    case ChainType_FingerPinky:  fingerIdx = 4; break;
+                    default: break;
+                }
+                if (fingerIdx >= 0) {
+                    s_Instance->m_TipNodeIndices[fingerIdx] = n;
+                }
+            }
+            s_Instance->m_TipNodeIdsResolved = true;
+        }
+
+        // 골격 노드 데이터를 가져와서 Tip 위치 추출
+        std::vector<SkeletonNode> nodes(t_Info.nodesCount);
+        if (CoreSdk_GetRawSkeletonData(i, nodes.data(), t_Info.nodesCount) != SDKReturnCode::SDKReturnCode_Success) break;
+
+        for (int f = 0; f < 5; f++) {
+            uint32_t idx = s_Instance->m_TipNodeIndices[f];
+            if (idx < t_Info.nodesCount) {
+                s_Instance->m_FingertipPositions[f * 3 + 0] = nodes[idx].transform.position.x;
+                s_Instance->m_FingertipPositions[f * 3 + 1] = nodes[idx].transform.position.y;
+                s_Instance->m_FingertipPositions[f * 3 + 2] = nodes[idx].transform.position.z;
+            }
+        }
+        break; // 우측 글로브 골격을 찾았으므로 루프 종료
     }
 }
 
@@ -167,19 +231,38 @@ void TeleopMasterClient::Run() {
             // 백그라운드 콜백에서 데이터가 업데이트되는 것을 보호하기 위해 mutex 잠금
             std::lock_guard<std::mutex> lock(m_DataMutex);
             
+            // 캘리브레이션 적용된 위치 및 회전 계산
+            float calibPosX = m_WristTracker.position.x - m_PosOffsetX;
+            float calibPosY = m_WristTracker.position.y - m_PosOffsetY;
+            float calibPosZ = m_WristTracker.position.z - m_PosOffsetZ;
+
+            // 회전 적용 (q_new = q_offset * q_raw)
+            float rw = m_WristTracker.rotation.w;
+            float rx = m_WristTracker.rotation.x;
+            float ry = m_WristTracker.rotation.y;
+            float rz = m_WristTracker.rotation.z;
+
+            float calibRotW = m_RotOffsetW * rw - m_RotOffsetX * rx - m_RotOffsetY * ry - m_RotOffsetZ * rz;
+            float calibRotX = m_RotOffsetW * rx + m_RotOffsetX * rw + m_RotOffsetY * rz - m_RotOffsetZ * ry;
+            float calibRotY = m_RotOffsetW * ry - m_RotOffsetX * rz + m_RotOffsetY * rw + m_RotOffsetZ * rx;
+            float calibRotZ = m_RotOffsetW * rz + m_RotOffsetX * ry - m_RotOffsetY * rx + m_RotOffsetZ * rw;
+
             // 현재 프레임의 데이터를 타겟 IP로 전송
-            SendUDPData();
+            SendUDPData(calibPosX, calibPosY, calibPosZ, calibRotW, calibRotX, calibRotY, calibRotZ);
 
             // 콘솔 화면을 지우고 현재 데이터 상태 출력
             system("cls");
-            printf("=== [KAIST NREL] MANUS -> ROS2 Humble (UDP 50Hz) ===\n");
-            printf("[Wrist] Pos: X:%.3f Y:%.3f Z:%.3f | Quat: W:%.3f X:%.3f Y:%.3f Z:%.3f\n",
-                m_WristTracker.position.x, m_WristTracker.position.y, m_WristTracker.position.z,
-                m_WristTracker.rotation.w, m_WristTracker.rotation.x, m_WristTracker.rotation.y, m_WristTracker.rotation.z);
+            printf("=== MANUS Core -> ROS2 Humble (UDP 50Hz) ===\n");
+            printf("[VIVE Tracker] Pos: X:%.3f Y:%.3f Z:%.3f | Quat: W:%.3f X:%.3f Y:%.3f Z:%.3f\n",
+                calibPosX, calibPosY, calibPosZ, calibRotW, calibRotX, calibRotY, calibRotZ);
+            
+            if (m_Calibrated) {
+                printf("[!] Tracker Zeroed (Calibration Applied).\n");
+            }
 
             if (m_RightGloveID != 0) {
-                printf("[Glove ID: 0x%X] Sending 15 Finger Joints...\n", m_RightGloveID);
-                printf("  Thumb:  CMC_Fl/Ex=%.2f CMC_Ab/Ad=%.2f MCP_Fl/Ex=%.2f IP_Fl/Ex=%.2f\n",
+                printf("[MANUS Glove ID: 0x%X] Sending 20 Finger Joints...\n", m_RightGloveID);
+                printf("  Thumb:  MCPSpread=%.2f MCPStrech=%.2f PIPStrech=%.2f DIPStrech=%.2f\n",
                     m_RightGloveData.data[20], m_RightGloveData.data[21], m_RightGloveData.data[22], m_RightGloveData.data[23]);
                 printf("  Index:  MCP_Ab/Ad=%.2f MCP_Fl/Ex=%.2f PIP_Fl/Ex=%.2f DIP_Fl/Ex=%.2f\n",
                     m_RightGloveData.data[24], m_RightGloveData.data[25], m_RightGloveData.data[26], m_RightGloveData.data[27]);
@@ -189,10 +272,37 @@ void TeleopMasterClient::Run() {
                     m_RightGloveData.data[32], m_RightGloveData.data[33], m_RightGloveData.data[34], m_RightGloveData.data[35]);
                 printf("  Pinky:  MCP_Ab/Ad=%.2f MCP_Fl/Ex=%.2f PIP_Fl/Ex=%.2f DIP_Fl/Ex=%.2f\n",
                     m_RightGloveData.data[36], m_RightGloveData.data[37], m_RightGloveData.data[38], m_RightGloveData.data[39]);
+
+                if (m_TipNodeIdsResolved) {
+                    const char* fingerNames[5] = {"Thumb", "Index", "Middle", "Ring", "Pinky"};
+                    printf("[Fingertip Positions (Raw Skeleton)]\n");
+                    for (int f = 0; f < 5; f++) {
+                        printf("  %-7s: X:%.4f Y:%.4f Z:%.4f\n", fingerNames[f],
+                            m_FingertipPositions[f * 3 + 0], m_FingertipPositions[f * 3 + 1], m_FingertipPositions[f * 3 + 2]);
+                    }
+                }
             }
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(20));
-        if (GetKeyDown(' ')) m_Running = false;
+
+        // Spacebar 입력 시 현재 위치 및 회전을 0으로 설정(캘리브레이션)
+        if (GetKeyDown(' ')) {
+            std::lock_guard<std::mutex> lock(m_DataMutex);
+            m_PosOffsetX = m_WristTracker.position.x;
+            m_PosOffsetY = m_WristTracker.position.y;
+            m_PosOffsetZ = m_WristTracker.position.z;
+
+            // 회전 역산(켤레 복소수) 저장
+            m_RotOffsetW = m_WristTracker.rotation.w;
+            m_RotOffsetX = -m_WristTracker.rotation.x;
+            m_RotOffsetY = -m_WristTracker.rotation.y;
+            m_RotOffsetZ = -m_WristTracker.rotation.z;
+            m_Calibrated = true;
+        }
+
+        // ESC 입력 시 종료
+        if (GetKeyDown(VK_ESCAPE)) m_Running = false;
+
         m_FrameCounter++;
     }
 }

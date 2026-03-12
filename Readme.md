@@ -51,9 +51,11 @@ By default, the UDP packets are sent to:
 ### Building via MSBuild / PowerShell
 ```powershell
 cd TeleopMasterClient_Windows
-& "C:\Program Files\Microsoft Visual Studio\2022\Community\MSBuild\Current\Bin\MSBuild.exe" TeleopMasterClient.vcxproj /p:Configuration=Release /p:Platform=x64
+# Auto-detect MSBuild path using vswhere
+$MSBuildPath = & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -requires Microsoft.Component.MSBuild -find MSBuild\**\Bin\MSBuild.exe
+& $MSBuildPath TeleopMasterClient.vcxproj /p:Configuration=Release /p:Platform=x64
 ```
-*(Ensure the MSBuild path matches your Visual Studio installation.)*
+*(The MSBuild path is automatically detected using `vswhere.exe`.)*
 
 ### Running
 Once built successfully, the executable will be placed in the `Output/x64/Release/` folder.
@@ -61,7 +63,9 @@ Once built successfully, the executable will be placed in the `Output/x64/Releas
 .\Output\x64\Release\TeleopMasterClient_Windows.exe
 ```
 
-Upon execution, the terminal will dynamically display the parsed Right Wrist positional and rotational data, along with the real-time angles of all 15 finger joints. Press `Spacebar` to exit gracefully.
+Upon execution, the terminal will dynamically display the parsed Right Wrist positional and rotational data, along with the real-time angles of all 20 finger joints. 
+- Press `Spacebar` to zero the VIVE Tracker's position and rotation.
+- Press `Esc` to exit gracefully.
 
 
 
