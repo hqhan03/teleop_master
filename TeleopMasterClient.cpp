@@ -1,11 +1,44 @@
-#include "TeleopMasterClient.hpp"
+﻿#include "TeleopMasterClient.hpp"
 #include "ManusSDKTypes.h"
 #include <iostream>
 #include <thread>
 #include <cmath>
+#include <array>
 #include "ClientLogging.hpp"
 
 using ManusSDK::ClientLog;
+
+namespace {
+
+std::array<float, 3> SubtractVec3(const ManusVec3& a, const ManusVec3& b) {
+    return {a.x - b.x, a.y - b.y, a.z - b.z};
+}
+
+std::array<float, 3> RotateVec3ByInverseQuaternion(
+    const std::array<float, 3>& v, const ManusQuaternion& q) {
+    const float norm_sq = q.w * q.w + q.x * q.x + q.y * q.y + q.z * q.z;
+    if (norm_sq <= 1e-8f) {
+        return v;
+    }
+
+    const float iw = q.w / norm_sq;
+    const float ix = -q.x / norm_sq;
+    const float iy = -q.y / norm_sq;
+    const float iz = -q.z / norm_sq;
+
+    const float t0w = -ix * v[0] - iy * v[1] - iz * v[2];
+    const float t0x =  iw * v[0] + iy * v[2] - iz * v[1];
+    const float t0y =  iw * v[1] + iz * v[0] - ix * v[2];
+    const float t0z =  iw * v[2] + ix * v[1] - iy * v[0];
+
+    return {
+        -t0w * ix + t0x * iw - t0y * iz + t0z * iy,
+        -t0w * iy + t0y * iw - t0z * ix + t0x * iz,
+        -t0w * iz + t0z * iw - t0x * iy + t0y * ix,
+    };
+}
+
+}  // namespace
 
 // 싱글톤(Singleton) 인스턴스 전역 포인터 (콜백 함수에서 접근하기 위함)
 TeleopMasterClient* TeleopMasterClient::s_Instance = nullptr;
@@ -100,6 +133,7 @@ ClientReturnCode TeleopMasterClient::InitializeSDK() {
     RegisterAllCallbacks();
     CoordinateSystemVUH t_VUH = { AxisView::AxisView_XFromViewer, AxisPolarity::AxisPolarity_PositiveZ, Side::Side_Right, 1.0f };
     CoreSdk_InitializeCoordinateSystemWithVUH(t_VUH, true);
+    CoreSdk_SetRawSkeletonHandMotion(HandMotion_Auto);
     return ClientReturnCode::ClientReturnCode_Success;
 }
 
@@ -144,8 +178,8 @@ void TeleopMasterClient::OnRawSkeletonStreamCallback(const SkeletonStreamInfo* c
         if (t_Info.gloveId != s_Instance->m_RightGloveID) continue;
         if (t_Info.nodesCount == 0) continue;
 
-        // Tip 노드 인덱스를 한 번만 확인 (최초 프레임에서 매핑 수행)
-        if (!s_Instance->m_TipNodeIdsResolved) {
+        // Tip/Wrist 노드를 한 번만 확인 (최초 프레임에서 매핑 수행)
+        if (!s_Instance->m_RawSkeletonNodesResolved) {
             uint32_t nodeCount = 0;
             if (CoreSdk_GetRawSkeletonNodeCount(s_Instance->m_RightGloveID, nodeCount) != SDKReturnCode::SDKReturnCode_Success) break;
             if (nodeCount == 0) break;
@@ -153,35 +187,83 @@ void TeleopMasterClient::OnRawSkeletonStreamCallback(const SkeletonStreamInfo* c
             std::vector<NodeInfo> nodeInfos(nodeCount);
             if (CoreSdk_GetRawSkeletonNodeInfoArray(s_Instance->m_RightGloveID, nodeInfos.data(), nodeCount) != SDKReturnCode::SDKReturnCode_Success) break;
 
-            // ChainType → fingertipPos 배열 인덱스 매핑
+            // ChainType/FingerJointType → raw node ID 매핑
             for (uint32_t n = 0; n < nodeCount; n++) {
-                if (nodeInfos[n].fingerJointType != FingerJointType_Tip) continue;
+                if (nodeInfos[n].chainType == ChainType_Hand) {
+                    s_Instance->m_WristNodeId = nodeInfos[n].nodeId;
+                    continue;
+                }
+                if (nodeInfos[n].fingerJointType != FingerJointType_Tip) {
+                    continue;
+                }
+
                 int fingerIdx = -1;
                 switch (nodeInfos[n].chainType) {
-                    case ChainType_FingerThumb:  fingerIdx = 0; break;
-                    case ChainType_FingerIndex:  fingerIdx = 1; break;
-                    case ChainType_FingerMiddle: fingerIdx = 2; break;
-                    case ChainType_FingerRing:   fingerIdx = 3; break;
-                    case ChainType_FingerPinky:  fingerIdx = 4; break;
-                    default: break;
+                case ChainType_FingerThumb:  fingerIdx = 0; break;
+                case ChainType_FingerIndex:  fingerIdx = 1; break;
+                case ChainType_FingerMiddle: fingerIdx = 2; break;
+                case ChainType_FingerRing:   fingerIdx = 3; break;
+                case ChainType_FingerPinky:  fingerIdx = 4; break;
+                default: break;
                 }
                 if (fingerIdx >= 0) {
-                    s_Instance->m_TipNodeIndices[fingerIdx] = n;
+                    s_Instance->m_TipNodeIds[fingerIdx] = nodeInfos[n].nodeId;
                 }
             }
-            s_Instance->m_TipNodeIdsResolved = true;
+
+            bool allTipNodesResolved = s_Instance->m_WristNodeId != 0;
+            for (int f = 0; f < 5; ++f) {
+                if (s_Instance->m_TipNodeIds[f] == 0) {
+                    allTipNodesResolved = false;
+                    break;
+                }
+            }
+
+            if (!allTipNodesResolved) {
+                ClientLog::warn("Failed to resolve MANUS raw skeleton wrist/tip nodes yet.");
+                break;
+            }
+
+            s_Instance->m_RawSkeletonNodesResolved = true;
         }
 
-        // 골격 노드 데이터를 가져와서 Tip 위치 추출
+        if (!s_Instance->m_RawSkeletonNodesResolved) {
+            break;
+        }
+
+        // 골격 노드 데이터를 가져와서 palm-local Tip 위치 추출
         std::vector<SkeletonNode> nodes(t_Info.nodesCount);
         if (CoreSdk_GetRawSkeletonData(i, nodes.data(), t_Info.nodesCount) != SDKReturnCode::SDKReturnCode_Success) break;
 
+        const SkeletonNode* wristNode = nullptr;
+        for (const auto& node : nodes) {
+            if (node.id == s_Instance->m_WristNodeId) {
+                wristNode = &node;
+                break;
+            }
+        }
+        if (wristNode == nullptr) {
+            ClientLog::warn("MANUS raw skeleton frame missing wrist node.");
+            break;
+        }
+
         for (int f = 0; f < 5; f++) {
-            uint32_t idx = s_Instance->m_TipNodeIndices[f];
-            if (idx < t_Info.nodesCount) {
-                s_Instance->m_FingertipPositions[f * 3 + 0] = nodes[idx].transform.position.x;
-                s_Instance->m_FingertipPositions[f * 3 + 1] = nodes[idx].transform.position.y;
-                s_Instance->m_FingertipPositions[f * 3 + 2] = nodes[idx].transform.position.z;
+            const SkeletonNode* tipNode = nullptr;
+            for (const auto& node : nodes) {
+                if (node.id == s_Instance->m_TipNodeIds[f]) {
+                    tipNode = &node;
+                    break;
+                }
+            }
+            if (tipNode != nullptr) {
+                const std::array<float, 3> tip_from_wrist =
+                    SubtractVec3(tipNode->transform.position, wristNode->transform.position);
+                const std::array<float, 3> tip_palm =
+                    RotateVec3ByInverseQuaternion(tip_from_wrist, wristNode->transform.rotation);
+
+                s_Instance->m_FingertipPositions[f * 3 + 0] = tip_palm[0];
+                s_Instance->m_FingertipPositions[f * 3 + 1] = tip_palm[1];
+                s_Instance->m_FingertipPositions[f * 3 + 2] = tip_palm[2];
             }
         }
         break; // 우측 글로브 골격을 찾았으므로 루프 종료
@@ -215,7 +297,7 @@ void TeleopMasterClient::OnTrackerStreamCallback(const TrackerStreamInfo* const 
 
 // 메인 동작 루프: UDP 설정, Manus 호스트 연결, 실시간 데이터 송신 및 콘솔 출력 수행
 void TeleopMasterClient::Run() {
-
+    
     // [중요] 타겟 수신 PC (예: ROS2가 실행 중인 Ubuntu)의 실제 IP 및 Port로 변경하세요.
     if (!InitializeUDP("192.168.0.112", 12345)) {
         ClientLog::error("Failed to initialize UDP.");
@@ -262,7 +344,7 @@ void TeleopMasterClient::Run() {
 
             if (m_RightGloveID != 0) {
                 printf("[MANUS Glove ID: 0x%X] Sending 20 Finger Joints...\n", m_RightGloveID);
-                printf("  Thumb:  MCPSpread=%.2f MCPStretch=%.2f PIPStretch=%.2f DIPStretch=%.2f\n",
+                printf("  Thumb:  MCPSpread=%.2f MCPStrech=%.2f PIPStrech=%.2f DIPStrech=%.2f\n",
                     m_RightGloveData.data[20], m_RightGloveData.data[21], m_RightGloveData.data[22], m_RightGloveData.data[23]);
                 printf("  Index:  MCP_Ab/Ad=%.2f MCP_Fl/Ex=%.2f PIP_Fl/Ex=%.2f DIP_Fl/Ex=%.2f\n",
                     m_RightGloveData.data[24], m_RightGloveData.data[25], m_RightGloveData.data[26], m_RightGloveData.data[27]);
@@ -273,9 +355,9 @@ void TeleopMasterClient::Run() {
                 printf("  Pinky:  MCP_Ab/Ad=%.2f MCP_Fl/Ex=%.2f PIP_Fl/Ex=%.2f DIP_Fl/Ex=%.2f\n",
                     m_RightGloveData.data[36], m_RightGloveData.data[37], m_RightGloveData.data[38], m_RightGloveData.data[39]);
 
-                if (m_TipNodeIdsResolved) {
+                if (m_RawSkeletonNodesResolved) {
                     const char* fingerNames[5] = {"Thumb", "Index", "Middle", "Ring", "Pinky"};
-                    printf("[Fingertip Positions (Raw Skeleton)]\n");
+                    printf("[Fingertip Positions (Raw Skeleton Palm Frame)]\n");
                     for (int f = 0; f < 5; f++) {
                         printf("  %-7s: X:%.4f Y:%.4f Z:%.4f\n", fingerNames[f],
                             m_FingertipPositions[f * 3 + 0], m_FingertipPositions[f * 3 + 1], m_FingertipPositions[f * 3 + 2]);

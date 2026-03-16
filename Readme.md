@@ -12,9 +12,11 @@ Specifically, it extracts:
 1. **Right Wrist Tracker Data:** 
    - 3D Position (`X, Y, Z`)
    - 3D Rotation (Quaternion: `W, X, Y, Z`)
-2. **Right Glove Ergonomics Data (15 Joints):**
+2. **Right Glove Ergonomics Data (20 Joints):**
    - Extracts 4 metrics per finger (MCP Spread, MCP Stretch, PIP Stretch, DIP Stretch).
    - Thumb, Index, Middle, Ring, Pinky.
+3. **Right Glove Palm-Local Fingertip Positions:**
+   - 5 fingertip positions in the MANUS raw-skeleton palm frame.
 
 The extracted data is packed into a custom `HandDataPacket` array structured as follows and broadcasted via UDP at ~50Hz:
 
@@ -25,10 +27,13 @@ struct HandDataPacket {
     float wristPos[3];   // X, Y, Z (meters)
     float wristQuaternion[4]; // w, x, y, z
     float fingerFlexion[20]; // Thumb, Index, Middle, Ring, Pinky (MCP_Sp, MCP_St, PIP, DIP)
+    float fingertipPos[15]; // 5 fingertips × (X, Y, Z) in MANUS palm-local frame
 };
 #pragma pack(pop)
 ```
-*Total Packet Size: 4 + 12 + 16 + 80 = 112 bytes.*## Core Files
+*Total Packet Size: 4 + 12 + 16 + 80 + 60 = 172 bytes.*
+
+## Core Files
 
 * `TeleopMasterClient.hpp` / `TeleopMasterClient.cpp`: Contains the main SDK logic, Core connection, Callback handlers, UDP Socket setup, and the main run-loop.
 * `ManusSDK/`: Pre-compiled libraries, DLLs, and header files for Manus SDK.

@@ -5,6 +5,7 @@
 #include "ManusSDK.h"
 #include <mutex>
 #include <vector>
+#include <array>
 
 // UDP 통신을 위한 Winsock 라이브러리
 #include <winsock2.h>
@@ -18,7 +19,7 @@ struct HandDataPacket {
     float wristPos[3];   // X, Y, Z (meters)
     float wristQuaternion[4]; // w, x, y, z
     float fingerFlexion[20]; // Thumb, Index, Middle, Ring, Pinky (MCP_Sp, MCP_St, PIP, DIP)
-    float fingertipPos[15]; // 5 fingertips × (X, Y, Z) — Thumb, Index, Middle, Ring, Pinky
+    float fingertipPos[15]; // 5 fingertips × (X, Y, Z) in MANUS palm-local frame
 };
 #pragma pack(pop)
 
@@ -66,10 +67,11 @@ protected:
     uint32_t m_RightGloveID = 0;
     uint32_t m_FrameCounter = 0;
 
-    // Raw skeleton fingertip data
-    bool m_TipNodeIdsResolved = false;
-    uint32_t m_TipNodeIndices[5] = {0}; // Indices into SkeletonNode array for 5 fingertip nodes
-    float m_FingertipPositions[15] = {0}; // XYZ for 5 fingertips (Thumb, Index, Middle, Ring, Pinky)
+    // Raw skeleton node mapping and palm-local fingertip data
+    bool m_RawSkeletonNodesResolved = false;
+    uint32_t m_WristNodeId = 0;
+    uint32_t m_TipNodeIds[5] = {0}; // Node IDs for Thumb, Index, Middle, Ring, Pinky tips
+    float m_FingertipPositions[15] = {0}; // XYZ for 5 fingertips in MANUS palm-local frame
 
     // Tracker Calibration (Zeroing)
     bool m_Calibrated = false;
