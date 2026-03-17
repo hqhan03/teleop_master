@@ -68,7 +68,12 @@ Once built successfully, the executable will be placed in the `Output/x64/Releas
 .\Output\x64\Release\TeleopMasterClient_Windows.exe
 ```
 
-Upon execution, the terminal will dynamically display the parsed Right Wrist positional and rotational data, along with the real-time angles of all 20 finger joints. 
+Upon execution, the client follows a step-by-step startup sequence with progress indicators (`[1/3]`, `[2/3]`, `[3/3]`). Error messages include SDK return codes for easier debugging and pause for user acknowledgement.
+
+Once connected to Manus Core, the terminal dynamically displays the parsed Right Wrist positional and rotational data, along with the real-time angles of all 20 finger joints.
+
+**Diagnostic Node Dump:** After the first raw skeleton frame is received, a one-time node dump is printed to the console showing all skeleton node metadata — node IDs, parent IDs, chain types, and finger joint types. The console avoids clearing for 10 seconds so you can read this output. This is useful for verifying that the SDK is reporting the expected skeleton structure.
+
 - Press `Spacebar` to zero the VIVE Tracker's position and rotation.
 - Press `Esc` to exit gracefully.
 
