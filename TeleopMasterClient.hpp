@@ -6,6 +6,7 @@
 #include <mutex>
 #include <vector>
 #include <array>
+#include <chrono>
 
 // UDP 통신을 위한 Winsock 라이브러리
 #include <winsock2.h>
@@ -69,6 +70,7 @@ protected:
 
     // Raw skeleton node mapping and palm-local fingertip data
     bool m_RawSkeletonNodesResolved = false;
+    bool m_WristNodeResolved = false;
     uint32_t m_WristNodeId = 0;
     uint32_t m_TipNodeIds[5] = {0}; // Node IDs for Thumb, Index, Middle, Ring, Pinky tips
     float m_FingertipPositions[15] = {0}; // XYZ for 5 fingertips in MANUS palm-local frame
@@ -89,6 +91,9 @@ protected:
     SOCKET m_Socket;
     sockaddr_in m_DestAddr;
     bool m_UdpInitialized = false;
+
+    // Timestamp of diagnostic node dump (to pause cls for readability)
+    std::chrono::steady_clock::time_point m_NodeDumpTime{};
 };
 
 #endif

@@ -44,15 +44,26 @@ std::array<float, 3> RotateVec3ByInverseQuaternion(
 TeleopMasterClient* TeleopMasterClient::s_Instance = nullptr;
 
 int main(int argc, char* argv[]) {
+    printf("=== TeleopMasterClient Starting ===\n"); fflush(stdout);
+
     TeleopMasterClient t_Client;
-    
+
     // 1. 클라이언트(SDK 및 소켓) 초기화
-    if (t_Client.Initialize() != ClientReturnCode::ClientReturnCode_Success) return -1;
-    
+    printf("[1/3] Initializing...\n"); fflush(stdout);
+    ClientReturnCode initResult = t_Client.Initialize();
+    if (initResult != ClientReturnCode::ClientReturnCode_Success) {
+        printf("ERROR: Initialization failed (code: %d)\n", (int)initResult); fflush(stdout);
+        printf("Make sure Manus Core is running.\n"); fflush(stdout);
+        system("pause");
+        return -1;
+    }
+
     // 2. 메인 루프 실행 (데이터 수신 및 UDP 전송)
+    printf("[2/3] Initialization OK. Starting main loop...\n"); fflush(stdout);
     t_Client.Run();
-    
+
     // 3. 종료 시 리소스 정리
+    printf("[3/3] Shutting down...\n"); fflush(stdout);
     t_Client.ShutDown();
     return 0;
 }
@@ -124,16 +135,29 @@ void TeleopMasterClient::SendUDPData(float posX, float posY, float posZ, float r
 }
 
 ClientReturnCode TeleopMasterClient::Initialize() {
-    if (!PlatformSpecificInitialization()) return ClientReturnCode::ClientReturnCode_FailedToInitialize;
+    printf("  - PlatformSpecificInitialization()...\n"); fflush(stdout);
+    if (!PlatformSpecificInitialization()) {
+        printf("  ERROR: PlatformSpecificInitialization() failed!\n"); fflush(stdout);
+        return ClientReturnCode::ClientReturnCode_FailedToInitialize;
+    }
+    printf("  - PlatformSpecificInitialization() OK.\n"); fflush(stdout);
     return InitializeSDK();
 }
 
 ClientReturnCode TeleopMasterClient::InitializeSDK() {
-    if (CoreSdk_InitializeCore() != SDKReturnCode::SDKReturnCode_Success) return ClientReturnCode::ClientReturnCode_FailedToInitialize;
+    printf("  - CoreSdk_InitializeCore()...\n"); fflush(stdout);
+    SDKReturnCode t_SdkResult = CoreSdk_InitializeCore();
+    if (t_SdkResult != SDKReturnCode::SDKReturnCode_Success) {
+        printf("  ERROR: CoreSdk_InitializeCore() failed (SDK code: %d)\n", (int)t_SdkResult); fflush(stdout);
+        return ClientReturnCode::ClientReturnCode_FailedToInitialize;
+    }
+    printf("  - CoreSdk_InitializeCore() OK.\n"); fflush(stdout);
+    printf("  - Registering callbacks...\n"); fflush(stdout);
     RegisterAllCallbacks();
+    printf("  - Setting coordinate system...\n"); fflush(stdout);
     CoordinateSystemVUH t_VUH = { AxisView::AxisView_XFromViewer, AxisPolarity::AxisPolarity_PositiveZ, Side::Side_Right, 1.0f };
     CoreSdk_InitializeCoordinateSystemWithVUH(t_VUH, true);
-    CoreSdk_SetRawSkeletonHandMotion(HandMotion_Auto);
+    printf("  - SDK initialization complete.\n"); fflush(stdout);
     return ClientReturnCode::ClientReturnCode_Success;
 }
 
@@ -187,10 +211,27 @@ void TeleopMasterClient::OnRawSkeletonStreamCallback(const SkeletonStreamInfo* c
             std::vector<NodeInfo> nodeInfos(nodeCount);
             if (CoreSdk_GetRawSkeletonNodeInfoArray(s_Instance->m_RightGloveID, nodeInfos.data(), nodeCount) != SDKReturnCode::SDKReturnCode_Success) break;
 
+            // Diagnostic: dump all node metadata once to identify correct node types
+            static bool s_DumpedOnce = false;
+            if (!s_DumpedOnce) {
+                s_DumpedOnce = true;
+                printf("\n=== RAW SKELETON NODE DUMP (nodeCount=%u) ===\n", nodeCount);
+                for (uint32_t n = 0; n < nodeCount; n++) {
+                    printf("  Node[%u]: id=%u parent=%u chainType=%d side=%d fingerJointType=%d\n",
+                        n, nodeInfos[n].nodeId, nodeInfos[n].parentId,
+                        (int)nodeInfos[n].chainType, (int)nodeInfos[n].side,
+                        (int)nodeInfos[n].fingerJointType);
+                }
+                printf("=== END NODE DUMP ===\n\n");
+                fflush(stdout);
+                s_Instance->m_NodeDumpTime = std::chrono::steady_clock::now();
+            }
+
             // ChainType/FingerJointType → raw node ID 매핑
             for (uint32_t n = 0; n < nodeCount; n++) {
                 if (nodeInfos[n].chainType == ChainType_Hand) {
                     s_Instance->m_WristNodeId = nodeInfos[n].nodeId;
+                    s_Instance->m_WristNodeResolved = true;
                     continue;
                 }
                 if (nodeInfos[n].fingerJointType != FingerJointType_Tip) {
@@ -211,7 +252,7 @@ void TeleopMasterClient::OnRawSkeletonStreamCallback(const SkeletonStreamInfo* c
                 }
             }
 
-            bool allTipNodesResolved = s_Instance->m_WristNodeId != 0;
+            bool allTipNodesResolved = s_Instance->m_WristNodeResolved;
             for (int f = 0; f < 5; ++f) {
                 if (s_Instance->m_TipNodeIds[f] == 0) {
                     allTipNodesResolved = false;
@@ -297,15 +338,25 @@ void TeleopMasterClient::OnTrackerStreamCallback(const TrackerStreamInfo* const 
 
 // 메인 동작 루프: UDP 설정, Manus 호스트 연결, 실시간 데이터 송신 및 콘솔 출력 수행
 void TeleopMasterClient::Run() {
-    
+    printf("[Run] Initializing UDP...\n"); fflush(stdout);
+
     // [중요] 타겟 수신 PC (예: ROS2가 실행 중인 Ubuntu)의 실제 IP 및 Port로 변경하세요.
     if (!InitializeUDP("192.168.0.112", 12345)) {
+        printf("[Run] ERROR: UDP init failed!\n"); fflush(stdout);
         ClientLog::error("Failed to initialize UDP.");
+        system("pause");
         return;
     }
+    printf("[Run] UDP OK. Connecting to Manus Core...\n"); fflush(stdout);
 
     // Manus Core와 연결될 때까지 주기적으로 재시도 (1초 간격)
-    while (Connect() != ClientReturnCode::ClientReturnCode_Success) std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    while (Connect() != ClientReturnCode::ClientReturnCode_Success) {
+        printf("[Run] Connection failed, retrying in 1s...\n"); fflush(stdout);
+        std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+    }
+    printf("[Run] Connected! Setting raw skeleton hand motion...\n"); fflush(stdout);
+    CoreSdk_SetRawSkeletonHandMotion(HandMotion_Auto);
+    printf("[Run] Entering main loop.\n"); fflush(stdout);
 
     // 메인 데이터 스트리밍 루프 시작
     while (m_Running) {
@@ -332,8 +383,15 @@ void TeleopMasterClient::Run() {
             // 현재 프레임의 데이터를 타겟 IP로 전송
             SendUDPData(calibPosX, calibPosY, calibPosZ, calibRotW, calibRotX, calibRotY, calibRotZ);
 
-            // 콘솔 화면을 지우고 현재 데이터 상태 출력
-            system("cls");
+            // Skip cls for 10s after node dump to let user read diagnostic output
+            auto timeSinceDump = std::chrono::steady_clock::now() - m_NodeDumpTime;
+            if (m_NodeDumpTime == std::chrono::steady_clock::time_point{} ||
+                timeSinceDump > std::chrono::seconds(10)) {
+                system("cls");
+            } else {
+                printf("\n--- Node dump displayed above (%.0fs remaining) ---\n",
+                    10.0 - std::chrono::duration<double>(timeSinceDump).count());
+            }
             printf("=== MANUS Core -> ROS2 Humble (UDP 50Hz) ===\n");
             printf("[VIVE Tracker] Pos: X:%.3f Y:%.3f Z:%.3f | Quat: W:%.3f X:%.3f Y:%.3f Z:%.3f\n",
                 calibPosX, calibPosY, calibPosZ, calibRotW, calibRotX, calibRotY, calibRotZ);
@@ -362,6 +420,8 @@ void TeleopMasterClient::Run() {
                         printf("  %-7s: X:%.4f Y:%.4f Z:%.4f\n", fingerNames[f],
                             m_FingertipPositions[f * 3 + 0], m_FingertipPositions[f * 3 + 1], m_FingertipPositions[f * 3 + 2]);
                     }
+                } else {
+                    printf("[Fingertip Positions] Waiting for raw skeleton node resolution...\n");
                 }
             }
         }
